@@ -129,9 +129,7 @@ Your goal is to guide strategic remediation aligned to NIST CSF and promote MXDR
 
 # Helper Functions
 def generate_summary_insight(percentage_scores):
-    """
-    Generate a summary insight based on average percentage score.
-    """
+    """Generate a summary insight based on average percentage score."""
     if not percentage_scores:
         return "No scores available to analyze."
     avg_score = sum(percentage_scores.values()) / len(percentage_scores)
@@ -145,9 +143,7 @@ def generate_summary_insight(percentage_scores):
         return "Organization lacks comprehensive cybersecurity implementation across all categories."
 
 def determine_priority(percentage_score):
-    """
-    Determine priority based on percentage performance (0-100%)
-    """
+    """Determine priority based on percentage performance (0-100%)"""
     if percentage_score == 0:
         return "Critical"           # 0% - No implementation
     elif percentage_score <= 25:
@@ -160,9 +156,7 @@ def determine_priority(percentage_score):
         return "Low"               # 76-100% - Excellent (optimization focus)
 
 def generate_recommendation(category, score):
-    """
-    Generate specific recommendations based on category and score.
-    """
+    """Generate specific recommendations based on category and score."""
     recommendations = {
         "govern": {
             0: "Implement basic governance framework and policies",
@@ -205,9 +199,7 @@ def generate_recommendation(category, score):
     return recommendations.get(category, {}).get(score, "Review and improve current practices")
 
 def generate_rationale(category, score):
-    """
-    Generate rationale for recommendations based on category and score.
-    """
+    """Generate rationale for recommendations based on category and score."""
     rationales = {
         "govern": {
             0: "No governance framework in place, creating significant compliance and operational risks",
@@ -250,9 +242,7 @@ def generate_rationale(category, score):
     return rationales.get(category, {}).get(score, "Review current practices and identify improvement areas")
 
 def get_supporting_resources(category):
-    """
-    Get relevant supporting resources for a category.
-    """
+    """Get relevant supporting resources for a category."""
     resources = {
         "govern": [
             "NIST Governance Framework Template",
@@ -289,9 +279,7 @@ def get_supporting_resources(category):
     return resources.get(category, ["General cybersecurity best practices guide"])
 
 def generate_next_steps(scores):
-    """
-    Generate prioritized next steps based on scores.
-    """
+    """Generate prioritized next steps based on scores."""
     next_steps = []
     
     # Prioritize categories with lowest scores
@@ -308,9 +296,7 @@ def generate_next_steps(scores):
     return next_steps
 
 def analyze_individual_controls(survey_data):
-    """
-    Analyze individual NIST controls from the tasks array.
-    """
+    """Analyze individual NIST controls from the tasks array."""
     control_recommendations = []
     
     # Get tasks array
@@ -339,9 +325,7 @@ def extract_control_id(task_name):
     return task_name.split(':')[0].strip()
 
 def get_control_recommendation(control_id, score, task_data):
-    """
-    Generate specific recommendations for individual controls.
-    """
+    """Generate specific recommendations for individual controls."""
     # Default recommendation template
     recommendation = {
         "control_id": control_id,
@@ -423,93 +407,6 @@ def process_survey_data(survey_data):
     
     return analysis
 
-def process_survey(survey_name, survey_id):
-    """Process a single survey and generate recommendations"""
-    task_url = f"{base_url}/surveyTasks?surveyId={survey_id}"
-    meta_url = f"{base_url}/survey?surveyId={survey_id}"
-
-    print(f"\n🔄 Processing survey: {survey_name} (ID: {survey_id})")
-    print(f"📡 Task URL: {task_url}")
-    print(f"📡 Meta URL: {meta_url}")
-
-    try:
-        # Send both requests using session
-        task_resp = session.get(task_url, headers=headers, timeout=30)
-        meta_resp = session.get(meta_url, headers=headers, timeout=30)
-
-        print(f"🛰️ Task Status: {task_resp.status_code} | Meta Status: {meta_resp.status_code}")
-
-        task_data, meta_data = {}, {}
-
-        # Handle meta response
-        if meta_resp.status_code == 200 and meta_resp.text.strip():
-            try:
-                meta_data = meta_resp.json()
-                if isinstance(meta_data.get("scores"), str):
-                    try:
-                        meta_data["scores"] = json.loads(meta_data["scores"])
-                    except json.JSONDecodeError:
-                        print(f"⚠️ Could not parse 'scores' for {survey_name}")
-                        meta_data["scores"] = {}
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Meta JSON error for {survey_name}: {e}")
-        else:
-            print(f"⚠️ Empty or non-JSON meta response for {survey_name}")
-
-        # Handle task response
-        if task_resp.status_code == 200 and task_resp.text.strip():
-            try:
-                task_data = task_resp.json()
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Task JSON error for {survey_name}: {e}")
-        else:
-            print(f"⚠️ Empty or non-JSON task response for {survey_name}")
-
-        # Create survey data
-        survey_data = {
-            "survey_name": survey_name,
-            "survey_id": survey_id,
-            "meta": meta_data,
-            "tasks": task_data
-        }
-
-        # Process the survey data and generate recommendations
-        recommendations = []
-        tasks = survey_data.get("tasks", {}).get("tasks", [])
-        category_scores = survey_data.get("meta", {}).get("scores", {})
-
-        for task in tasks:
-            if task.get("score") is not None:
-                recommendation = generate_subcategory_recommendation(
-                    task,
-                    category_scores,
-                    survey_id
-                )
-                if recommendation:
-                    recommendations.append(recommendation)
-
-        # Create the final output structure
-        final_output = {
-            "user_context": {
-                "organization_name": survey_name,
-                "survey_id": survey_id,
-                "assessment_date": datetime.now().strftime("%Y-%m-%d"),
-                "current_maturity_scores": category_scores,
-                "overall_maturity_level": calculate_overall_maturity(category_scores)
-            },
-            "recommendations": recommendations
-        }
-
-        # Print the raw response
-        print("\n📊 Generated Recommendations:")
-        print(json.dumps(final_output, indent=2))
-        
-        print(f"✅ Processed: {survey_name} at {datetime.now().strftime('%H:%M:%S')}")
-        time.sleep(0.5)
-
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Request failed for {survey_name}: {e}")
-
 def calculate_overall_maturity(category_scores):
     """Calculate overall maturity level based on category scores"""
     if not category_scores:
@@ -525,64 +422,6 @@ def calculate_overall_maturity(category_scores):
         return "Basic"
     else:
         return "Initial"
-
-def generate_subcategory_recommendation(task, category_scores, survey_id):
-    """Generate recommendation for a specific subcategory"""
-    try:
-        # Extract task information
-        task_id = task.get("id")
-        task_name = task.get("name", "")
-        score = int(task.get("score", 0))
-        category = task.get("kind", "").split()[0]  # Extract category from kind
-        subcategory = task.get("subSystem", "")
-        context = task.get("additionalContext", "")
-        references = task.get("informativeReferences", "")
-        
-        # Determine priority
-        priority = determine_priority(score)
-        
-        # Prepare the prompt for this subcategory
-        prompt = prepare_subcategory_prompt(
-            task_name,
-            score,
-            category,
-            subcategory,
-            context,
-            references,
-            category_scores
-        )
-        
-        # Generate recommendation using GPT
-        recommendation = generate_gpt_recommendation(prompt)
-        
-        if recommendation:
-            # Add metadata
-            recommendation.update({
-                "nist_subcategory": task_id,
-                "subcategory_title": task_name,
-                "category": category,
-                "current_score": score,
-                "priority": priority,
-                "recommendation_id": str(uuid.uuid4()),
-                "timestamp": datetime.now().isoformat()
-            })
-            
-            return recommendation
-            
-    except Exception as e:
-        print(f"Error generating recommendation for task {task.get('id')}: {e}")
-        return None
-
-def determine_priority(score):
-    """Determine priority based on score"""
-    if score <= 1:
-        return "Critical"
-    elif score == 2:
-        return "High"
-    elif score == 3:
-        return "Medium"
-    else:
-        return "Low"
 
 def prepare_subcategory_prompt(task_name, score, category, subcategory, context, references, category_scores):
     """Prepare the prompt for a specific subcategory"""
@@ -642,26 +481,218 @@ def generate_gpt_recommendation(prompt, retries=3, delay=10):
                 time.sleep(delay)
     return None
 
+def generate_subcategory_recommendation(task, category_scores, survey_id):
+    """Generate recommendation for a specific subcategory"""
+    try:
+        # Extract task information
+        task_id = task.get("id")
+        task_name = task.get("name", "")
+        score = int(task.get("score", 0))
+        category = task.get("kind", "").split()[0]  # Extract category from kind
+        subcategory = task.get("subSystem", "")
+        context = task.get("additionalContext", "")
+        references = task.get("informativeReferences", "")
+        
+        # Determine priority
+        priority = determine_priority(score)
+        
+        # Prepare the prompt for this subcategory
+        prompt = prepare_subcategory_prompt(
+            task_name,
+            score,
+            category,
+            subcategory,
+            context,
+            references,
+            category_scores
+        )
+        
+        # Generate recommendation using GPT
+        recommendation = generate_gpt_recommendation(prompt)
+        
+        if recommendation:
+            # Add metadata
+            recommendation.update({
+                "nist_subcategory": task_id,
+                "subcategory_title": task_name,
+                "category": category,
+                "current_score": score,
+                "priority": priority,
+                "recommendation_id": str(uuid.uuid4()),
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            return recommendation
+            
+    except Exception as e:
+        print(f"Error generating recommendation for task {task.get('id')}: {e}")
+        return None
+
+def process_survey_internal(survey_name, survey_id):
+    """Internal function to process a single survey and generate recommendations"""
+    task_url = f"{base_url}/surveyTasks?surveyId={survey_id}"
+    meta_url = f"{base_url}/survey?surveyId={survey_id}"
+
+    try:
+        # Send both requests using session
+        task_resp = session.get(task_url, headers=headers, timeout=30)
+        meta_resp = session.get(meta_url, headers=headers, timeout=30)
+
+        task_data, meta_data = {}, {}
+
+        # Handle meta response
+        if meta_resp.status_code == 200 and meta_resp.text.strip():
+            try:
+                meta_data = meta_resp.json()
+                if isinstance(meta_data.get("scores"), str):
+                    try:
+                        meta_data["scores"] = json.loads(meta_data["scores"])
+                    except json.JSONDecodeError:
+                        meta_data["scores"] = {}
+            except json.JSONDecodeError as e:
+                pass
+
+        # Handle task response
+        if task_resp.status_code == 200 and task_resp.text.strip():
+            try:
+                task_data = task_resp.json()
+            except json.JSONDecodeError as e:
+                pass
+
+        # Create survey data
+        survey_data = {
+            "survey_name": survey_name,
+            "survey_id": survey_id,
+            "meta": meta_data,
+            "tasks": task_data
+        }
+
+        # Process the survey data and generate recommendations
+        recommendations = []
+        tasks = survey_data.get("tasks", {}).get("tasks", [])
+        category_scores = survey_data.get("meta", {}).get("scores", {})
+
+        for task in tasks:
+            if task.get("score") is not None:
+                recommendation = generate_subcategory_recommendation(
+                    task,
+                    category_scores,
+                    survey_id
+                )
+                if recommendation:
+                    recommendations.append(recommendation)
+
+        # Create the final output structure
+        final_output = {
+            "user_context": {
+                "organization_name": survey_name,
+                "survey_id": survey_id,
+                "assessment_date": datetime.now().strftime("%Y-%m-%d"),
+                "current_maturity_scores": category_scores,
+                "overall_maturity_level": calculate_overall_maturity(category_scores)
+            },
+            "recommendations": recommendations,
+            "processing_info": {
+                "processed_at": datetime.now().isoformat(),
+                "total_recommendations": len(recommendations),
+                "status": "success"
+            }
+        }
+
+        return final_output
+
+    except requests.exceptions.RequestException as e:
+        return {
+            "user_context": {
+                "organization_name": survey_name,
+                "survey_id": survey_id,
+                "assessment_date": datetime.now().strftime("%Y-%m-%d")
+            },
+            "error": str(e),
+            "status": "failed"
+        }
+
+# =============================================================================
+# FLASK ROUTES FOR VERCEL
+# =============================================================================
+
 @app.route('/')
 def home():
-    return "NIST 2.0 Recommendation Engine API is running"
+    """Main API endpoint - provides API information"""
+    return jsonify({
+        "service": "NIST 2.0 Recommendation Engine API",
+        "status": "running",
+        "version": "1.0.0",
+        "timestamp": datetime.now().isoformat(),
+        "available_endpoints": {
+            "process_survey": "/process_survey/<survey_id>",
+            "list_surveys": "/list_surveys",
+            "health": "/health"
+        },
+        "available_surveys": list(surveys.keys()),
+        "total_surveys": len(surveys)
+    })
 
-@app.route('/process_survey/<survey_id>')
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        "status": "healthy",
+        "service": "NIST 2.0 Recommendation Engine API",
+        "timestamp": datetime.now().isoformat(),
+        "environment": "production"
+    })
+
+@app.route('/process_survey/<int:survey_id>')
 def process_survey_endpoint(survey_id):
+    """Process survey by ID endpoint - your main functionality"""
     try:
-        survey_id = int(survey_id)
-        survey_name = next((name for name, id in surveys.items() if id == survey_id), None)
+        # Find survey name by ID
+        survey_name = None
+        for name, id_val in surveys.items():
+            if id_val == survey_id:
+                survey_name = name
+                break
+        
         if not survey_name:
-            return jsonify({"error": "Survey ID not found"}), 404
-            
-        result = process_survey(survey_name, survey_id)
+            return jsonify({
+                "error": "Survey ID not found",
+                "survey_id": survey_id,
+                "available_surveys": surveys
+            }), 404
+        
+        # Process the survey
+        result = process_survey_internal(survey_name, survey_id)
+        
         return jsonify(result)
+        
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "error": str(e),
+            "survey_id": survey_id,
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 @app.route('/list_surveys')
 def list_surveys():
-    return jsonify(surveys)
+    """List all available surveys"""
+    return jsonify({
+        "surveys": surveys,
+        "total_count": len(surveys),
+        "timestamp": datetime.now().isoformat()
+    })
+
+# =============================================================================
+# VERCEL HANDLER (REQUIRED)
+# =============================================================================
+
+def handler(request):
+    """Vercel serverless function handler"""
+    return app(request.environ, lambda status, headers: None)
+
+# =============================================================================
+# FOR LOCAL TESTING
+# =============================================================================
 
 if __name__ == "__main__":
     print("Starting NIST 2.0 Recommendation Engine API on http://localhost:5000")
