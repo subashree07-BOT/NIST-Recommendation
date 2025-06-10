@@ -1,9 +1,30 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "api/index.py", "use": "@vercel/python" }
-  ],
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.9",
+      "maxDuration": 60
+    }
+  },
   "routes": [
-    { "src": "/(.*)", "dest": "api/index.py" }
-  ]
+    {
+      "src": "/process_survey/(.*)",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/list_surveys",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/health",
+      "dest": "/api/index.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.py"
+    }
+  ],
+  "env": {
+    "PYTHONPATH": "/var/task"
+  }
 }
