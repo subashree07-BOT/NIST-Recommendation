@@ -617,8 +617,9 @@ def generate_gpt_recommendation(prompt, retries=3, delay=10):
     """Generate recommendation using GPT"""
     for attempt in range(retries):
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4o-mini",  # or your preferred model
+            client = openai.OpenAI()
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",  
                 messages=[
                     {"role": "system", "content": SYSTEM_INSTRUCTION},
                     {"role": "user", "content": prompt}
