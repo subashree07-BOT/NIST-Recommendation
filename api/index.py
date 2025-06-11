@@ -424,92 +424,94 @@ def process_survey_data(survey_data):
     return analysis
 
 def process_survey(survey_name, survey_id):
-    """Process a single survey and generate recommendations"""
-    task_url = f"{base_url}/surveyTasks?surveyId={survey_id}"
-    meta_url = f"{base_url}/survey?surveyId={survey_id}"
+   """Process a single survey and generate recommendations"""
+   task_url = f"{base_url}/surveyTasks?surveyId={survey_id}"
+   meta_url = f"{base_url}/survey?surveyId={survey_id}"
 
-    print(f"\n🔄 Processing survey: {survey_name} (ID: {survey_id})")
-    print(f"📡 Task URL: {task_url}")
-    print(f"📡 Meta URL: {meta_url}")
+   print(f"\n🔄 Processing survey: {survey_name} (ID: {survey_id})")
+   print(f"📡 Task URL: {task_url}")
+   print(f"📡 Meta URL: {meta_url}")
 
-    try:
-        # Send both requests using session
-        task_resp = session.get(task_url, headers=headers, timeout=30)
-        meta_resp = session.get(meta_url, headers=headers, timeout=30)
+   try:
+       # Send both requests using session
+       task_resp = session.get(task_url, headers=headers, timeout=30)
+       meta_resp = session.get(meta_url, headers=headers, timeout=30)
 
-        print(f"🛰️ Task Status: {task_resp.status_code} | Meta Status: {meta_resp.status_code}")
+       print(f"🛰️ Task Status: {task_resp.status_code} | Meta Status: {meta_resp.status_code}")
 
-        task_data, meta_data = {}, {}
+       task_data, meta_data = {}, {}
 
-        # Handle meta response
-        if meta_resp.status_code == 200 and meta_resp.text.strip():
-            try:
-                meta_data = meta_resp.json()
-                if isinstance(meta_data.get("scores"), str):
-                    try:
-                        meta_data["scores"] = json.loads(meta_data["scores"])
-                    except json.JSONDecodeError:
-                        print(f"⚠️ Could not parse 'scores' for {survey_name}")
-                        meta_data["scores"] = {}
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Meta JSON error for {survey_name}: {e}")
-        else:
-            print(f"⚠️ Empty or non-JSON meta response for {survey_name}")
+       # Handle meta response
+       if meta_resp.status_code == 200 and meta_resp.text.strip():
+           try:
+               meta_data = meta_resp.json()
+               if isinstance(meta_data.get("scores"), str):
+                   try:
+                       meta_data["scores"] = json.loads(meta_data["scores"])
+                   except json.JSONDecodeError:
+                       print(f"⚠️ Could not parse 'scores' for {survey_name}")
+                       meta_data["scores"] = {}
+           except json.JSONDecodeError as e:
+               print(f"⚠️ Meta JSON error for {survey_name}: {e}")
+       else:
+           print(f"⚠️ Empty or non-JSON meta response for {survey_name}")
 
-        # Handle task response
-        if task_resp.status_code == 200 and task_resp.text.strip():
-            try:
-                task_data = task_resp.json()
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Task JSON error for {survey_name}: {e}")
-        else:
-            print(f"⚠️ Empty or non-JSON task response for {survey_name}")
+       # Handle task response
+       if task_resp.status_code == 200 and task_resp.text.strip():
+           try:
+               task_data = task_resp.json()
+           except json.JSONDecodeError as e:
+               print(f"⚠️ Task JSON error for {survey_name}: {e}")
+       else:
+           print(f"⚠️ Empty or non-JSON task response for {survey_name}")
 
-        # Create survey data
-        survey_data = {
-            "survey_name": survey_name,
-            "survey_id": survey_id,
-            "meta": meta_data,
-            "tasks": task_data
-        }
+       # Create survey data
+       survey_data = {
+           "survey_name": survey_name,
+           "survey_id": survey_id,
+           "meta": meta_data,
+           "tasks": task_data
+       }
 
-        # Process the survey data and generate recommendations
-        recommendations = []
-        tasks = survey_data.get("tasks", {}).get("tasks", [])
-        category_scores = survey_data.get("meta", {}).get("scores", {})
+       # Process the survey data and generate recommendations
+       recommendations = []
+       tasks = survey_data.get("tasks", {}).get("tasks", [])
+       category_scores = survey_data.get("meta", {}).get("scores", {})
 
-        for task in tasks:
-            if task.get("score") is not None:
-                recommendation = generate_subcategory_recommendation(
-                    task,
-                    category_scores,
-                    survey_id
-                )
-                if recommendation:
-                    recommendations.append(recommendation)
+       for task in tasks:
+           if task.get("score") is not None:
+               recommendation = generate_subcategory_recommendation(
+                   task,
+                   category_scores,
+                   survey_id
+               )
+               if recommendation:
+                   recommendations.append(recommendation)
 
-        # Create the final output structure
-        final_output = {
-            "user_context": {
-                "organization_name": survey_name,
-                "survey_id": survey_id,
-                "assessment_date": datetime.now().strftime("%Y-%m-%d"),
-                "current_maturity_scores": category_scores,
-                "overall_maturity_level": calculate_overall_maturity(category_scores)
-            },
-            "recommendations": recommendations
-        }
+       # Create the final output structure
+       final_output = {
+           "user_context": {
+               "organization_name": survey_name,
+               "survey_id": survey_id,
+               "assessment_date": datetime.now().strftime("%Y-%m-%d"),
+               "current_maturity_scores": category_scores,
+               "overall_maturity_level": calculate_overall_maturity(category_scores)
+           },
+           "recommendations": recommendations
+       }
 
-        # Print the raw response
-        print("\n📊 Generated Recommendations:")
-        print(json.dumps(final_output, indent=2))
-        
-        print(f"✅ Processed: {survey_name} at {datetime.now().strftime('%H:%M:%S')}")
-        time.sleep(0.5)
+       # Print the raw response
+       print("\n📊 Generated Recommendations:")
+       print(json.dumps(final_output, indent=2))
+       
+       print(f"✅ Processed: {survey_name} at {datetime.now().strftime('%H:%M:%S')}")
+       time.sleep(0.5)
 
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Request failed for {survey_name}: {e}")
+       return final_output
 
+   except requests.exceptions.RequestException as e:
+       print(f"❌ Request failed for {survey_name}: {e}")
+       return {"error": f"Request failed for {survey_name}: {str(e)}", "survey_name": survey_name, "survey_id": survey_id}
 def calculate_overall_maturity(category_scores):
     """Calculate overall maturity level based on category scores"""
     if not category_scores:
