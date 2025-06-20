@@ -144,7 +144,7 @@ def generate_summary_insight(percentage_scores):
     else:
         return "Organization lacks comprehensive cybersecurity implementation across all categories."
 
-def determine_priority(percentage_score):
+def determine_priority_by_percentage(percentage_score):
     """
     Determine priority based on percentage performance (0-100%)
     """
@@ -406,7 +406,7 @@ def process_survey_data(survey_data):
         percentage = int(percentage)
         recommendation = {
             "category": category,
-            "priority": determine_priority(percentage),
+            "priority": determine_priority_by_percentage(percentage),
             "current_score": percentage,
             "current_percentage": f"{percentage}%",
             "recommendation": generate_recommendation(category, percentage),
@@ -528,6 +528,20 @@ def calculate_overall_maturity(category_scores):
     else:
         return "Initial"
 
+def get_score_response_text(score):
+    """
+    Get the descriptive text for a given score level.
+    """
+    score_responses = {
+        0: "Incomplete. No formal practices exist.",
+        1: "Ad hoc. Unstructured, reactive practices exist.",
+        2: "Developing. Some policies and controls exist, but they are incomplete, inconsistent, or not widely followed.",
+        3: "Managed. Policies and processes are documented, followed, and managed across teams, but effectiveness is not consistently measured.",
+        4: "Quantified. Policies and controls are regularly measured and continuously improved. The organization has a structured cybersecurity approach.",
+        5: "Optimized. Cybersecurity is fully integrated into business operations, continuously improving, and leveraging automation and advanced security practices."
+    }
+    return score_responses.get(score, "Unknown score level")
+
 def generate_subcategory_recommendation(task, category_scores, survey_id):
     """Generate recommendation for a specific subcategory"""
     try:
@@ -540,6 +554,9 @@ def generate_subcategory_recommendation(task, category_scores, survey_id):
         context = task.get("additionalContext", "")
         references = task.get("informativeReferences", "")
         
+        # Get score response text for additional context
+        score_response_text = get_score_response_text(score)
+
         # Determine priority
         priority = determine_priority(score)
         
@@ -551,7 +568,8 @@ def generate_subcategory_recommendation(task, category_scores, survey_id):
             subcategory,
             context,
             references,
-            category_scores
+            category_scores,
+            score_response_text
         )
         
         # Generate recommendation using GPT
@@ -564,6 +582,7 @@ def generate_subcategory_recommendation(task, category_scores, survey_id):
                 "subcategory_title": task_name,
                 "category": category,
                 "current_score": score,
+                "score_response": score_response_text,
                 "priority": priority,
                 "recommendation_id": str(uuid.uuid4()),
                 "timestamp": datetime.now().isoformat()
@@ -586,20 +605,21 @@ def determine_priority(score):
     else:
         return "Low"
 
-def prepare_subcategory_prompt(task_name, score, category, subcategory, context, references, category_scores):
+def prepare_subcategory_prompt(task_name, score, category, subcategory, context, references, category_scores, score_response_text):
     """Prepare the prompt for a specific subcategory"""
     return f"""
     Generate a comprehensive NIST 2.0 recommendation for:
     
     Subcategory: {task_name}
     Current Score: {score}
+    Score Description: {score_response_text}
     Category: {category}
     Subcategory: {subcategory}
     
     Current Maturity Scores:
     {json.dumps(category_scores, indent=2)}
     
-    Additional Context:
+    Additional Context from User:
     {context}
     
     References:
@@ -613,6 +633,7 @@ def prepare_subcategory_prompt(task_name, score, category, subcategory, context,
     5. Technical recommendations align with NIST examples
     6. ROI calculations use industry-standard metrics
     7. Language is professional but accessible to executives
+    8. Recommendations specifically address the current maturity level described in the Score Description.
     """
 
 def generate_gpt_recommendation(prompt, retries=3, delay=10):
