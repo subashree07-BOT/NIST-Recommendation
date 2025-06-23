@@ -7,6 +7,7 @@ import openai
 import uuid
 from dotenv import load_dotenv
 from flask import Flask, jsonify
+from flask_cors import CORS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,6 +17,7 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app, origins=["*"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
 # Survey IDs and names
 surveys = {
