@@ -43,7 +43,7 @@ headers = {
 
 # Base URL
 
-base_url = "https://www.gradientcyber.net/quorum/api"
+base_url = "https://staging-v2.gradientcyber.net/quorum/api"
 
 
 # Define the system instruction as a constant
