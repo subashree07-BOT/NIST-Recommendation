@@ -42,7 +42,7 @@ headers = {
 }
 
 # Base URL
-base_url = "https://www.gradientcyber.net/quorum/api"
+base_url = "https://staging-v2.gradientcyber.net/quorum/nist_2_0"
 
 # Define the system instruction as a constant
 SYSTEM_INSTRUCTION = """NIST 2.0 AI Recommendation Engine (Simplified Output Version)
