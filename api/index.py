@@ -6,7 +6,7 @@ import os
 import openai
 import uuid
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 # Load environment variables from .env file
@@ -32,37 +32,25 @@ headers = {
 # Base URL
 base_url = "https://staging-v2.gradientcyber.net/quorum/api"
 
-def fetch_surveys():
-    """Dynamically fetch surveys from the API"""
+def fetch_surveys(org_id):
+    """Dynamically fetch surveys from the API for a given org_id"""
     try:
-        surveys_url = f"{base_url}/surveys"
+        surveys_url = f"{base_url}/surveyTable?orgId={org_id}&page=1&pageSize=10"
         response = session.get(surveys_url, headers=headers, timeout=30)
-        
         if response.status_code == 200:
             surveys_data = response.json()
             surveys = {}
-            
-            # Extract survey ID and name from the response
-            # Adjust this based on the actual API response structure
-            if isinstance(surveys_data, list):
-                for survey in surveys_data:
-                    survey_id = survey.get('id')
-                    survey_name = survey.get('name')
-                    if survey_id and survey_name:
-                        surveys[survey_name] = survey_id
-            elif isinstance(surveys_data, dict) and 'surveys' in surveys_data:
-                for survey in surveys_data['surveys']:
-                    survey_id = survey.get('id')
-                    survey_name = survey.get('name')
-                    if survey_id and survey_name:
-                        surveys[survey_name] = survey_id
-            
+            hits = surveys_data.get("surveys", {}).get("hits", [])
+            for survey in hits:
+                survey_id = survey.get('ID')
+                survey_name = survey.get('name')
+                if survey_id and survey_name:
+                    surveys[survey_name] = survey_id
             print(f"✅ Successfully fetched {len(surveys)} surveys from API")
             return surveys
         else:
             print(f"❌ Failed to fetch surveys. Status: {response.status_code}")
             return {}
-            
     except Exception as e:
         print(f"❌ Error fetching surveys: {e}")
         return {}
@@ -698,19 +686,17 @@ def home():
 
 @app.route('/process_survey/<survey_id>')
 def process_survey_endpoint(survey_id):
+    org_id = request.args.get('orgId')
+    if not org_id:
+        return jsonify({"error": "Missing orgId parameter"}), 400
     try:
         survey_id = int(survey_id)
-        
-        # Fetch surveys dynamically
-        surveys = fetch_surveys()
+        surveys = fetch_surveys(org_id)
         if not surveys:
             return jsonify({"error": "Failed to fetch surveys from API"}), 500
-        
-        # Find survey name by ID
         survey_name = next((name for name, id in surveys.items() if id == survey_id), None)
         if not survey_name:
             return jsonify({"error": "Survey ID not found"}), 404
-            
         result = process_survey(survey_name, survey_id)
         return jsonify(result)
     except Exception as e:
@@ -718,7 +704,10 @@ def process_survey_endpoint(survey_id):
 
 @app.route('/list_surveys')
 def list_surveys():
-    surveys = fetch_surveys()
+    org_id = request.args.get('orgId')
+    if not org_id:
+        return jsonify({"error": "Missing orgId parameter"}), 400
+    surveys = fetch_surveys(org_id)
     if not surveys:
         return jsonify({"error": "Failed to fetch surveys from API"}), 500
     return jsonify(surveys)
