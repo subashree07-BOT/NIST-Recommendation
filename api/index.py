@@ -19,19 +19,6 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 app = Flask(__name__)
 CORS(app, origins=["*"], methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
-# Survey IDs and names
-surveys = {
-    "Dons Demo": 5160,
-    "LSLA Sample": 5143,
-    "May 2024": 5108,
-    "April 2025": 5107,
-    "tst": 5106,
-    "Test 1": 5105,
-    "AAA MME 1": 5104,
-    "AAA NIST 2.0 test": 5113,
-    "QA test surveys": 5177
-}
-
 # Session setup
 session = requests.Session()
 
@@ -43,9 +30,42 @@ headers = {
 }
 
 # Base URL
-
 base_url = "https://staging-v2.gradientcyber.net/quorum/api"
 
+def fetch_surveys():
+    """Dynamically fetch surveys from the API"""
+    try:
+        surveys_url = f"{base_url}/surveys"
+        response = session.get(surveys_url, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            surveys_data = response.json()
+            surveys = {}
+            
+            # Extract survey ID and name from the response
+            # Adjust this based on the actual API response structure
+            if isinstance(surveys_data, list):
+                for survey in surveys_data:
+                    survey_id = survey.get('id')
+                    survey_name = survey.get('name')
+                    if survey_id and survey_name:
+                        surveys[survey_name] = survey_id
+            elif isinstance(surveys_data, dict) and 'surveys' in surveys_data:
+                for survey in surveys_data['surveys']:
+                    survey_id = survey.get('id')
+                    survey_name = survey.get('name')
+                    if survey_id and survey_name:
+                        surveys[survey_name] = survey_id
+            
+            print(f"✅ Successfully fetched {len(surveys)} surveys from API")
+            return surveys
+        else:
+            print(f"❌ Failed to fetch surveys. Status: {response.status_code}")
+            return {}
+            
+    except Exception as e:
+        print(f"❌ Error fetching surveys: {e}")
+        return {}
 
 # Define the system instruction as a constant
 SYSTEM_INSTRUCTION = """NIST 2.0 AI Recommendation Engine (Simplified Output Version)
@@ -517,6 +537,7 @@ def process_survey(survey_name, survey_id):
    except requests.exceptions.RequestException as e:
        print(f"❌ Request failed for {survey_name}: {e}")
        return {"error": f"Request failed for {survey_name}: {str(e)}", "survey_name": survey_name, "survey_id": survey_id}
+
 def calculate_overall_maturity(category_scores):
     """Calculate overall maturity level based on category scores"""
     if not category_scores:
@@ -679,6 +700,13 @@ def home():
 def process_survey_endpoint(survey_id):
     try:
         survey_id = int(survey_id)
+        
+        # Fetch surveys dynamically
+        surveys = fetch_surveys()
+        if not surveys:
+            return jsonify({"error": "Failed to fetch surveys from API"}), 500
+        
+        # Find survey name by ID
         survey_name = next((name for name, id in surveys.items() if id == survey_id), None)
         if not survey_name:
             return jsonify({"error": "Survey ID not found"}), 404
@@ -690,6 +718,9 @@ def process_survey_endpoint(survey_id):
 
 @app.route('/list_surveys')
 def list_surveys():
+    surveys = fetch_surveys()
+    if not surveys:
+        return jsonify({"error": "Failed to fetch surveys from API"}), 500
     return jsonify(surveys)
 
 if __name__ == "__main__":
