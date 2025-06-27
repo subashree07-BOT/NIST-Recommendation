@@ -6,7 +6,7 @@ import os
 import openai
 import uuid
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from flask_cors import CORS
 
 # Load environment variables from .env file
@@ -31,29 +31,6 @@ headers = {
 
 # Base URL
 base_url = "https://staging-v2.gradientcyber.net/quorum/api"
-
-def fetch_surveys(org_id):
-    """Dynamically fetch surveys from the API for a given org_id"""
-    try:
-        surveys_url = f"{base_url}/surveyTable?orgId={org_id}&page=1&pageSize=10"
-        response = session.get(surveys_url, headers=headers, timeout=30)
-        if response.status_code == 200:
-            surveys_data = response.json()
-            surveys = {}
-            hits = surveys_data.get("surveys", {}).get("hits", [])
-            for survey in hits:
-                survey_id = survey.get('ID')
-                survey_name = survey.get('name')
-                if survey_id and survey_name:
-                    surveys[survey_name] = survey_id
-            print(f"✅ Successfully fetched {len(surveys)} surveys from API")
-            return surveys
-        else:
-            print(f"❌ Failed to fetch surveys. Status: {response.status_code}")
-            return {}
-    except Exception as e:
-        print(f"❌ Error fetching surveys: {e}")
-        return {}
 
 # Define the system instruction as a constant
 SYSTEM_INSTRUCTION = """NIST 2.0 AI Recommendation Engine (Simplified Output Version)
@@ -436,12 +413,11 @@ def process_survey_data(survey_data):
     
     return analysis
 
-def process_survey(survey_name, survey_id):
+def process_survey(survey_id):
    """Process a single survey and generate recommendations"""
    task_url = f"{base_url}/surveyTasks?surveyId={survey_id}"
    meta_url = f"{base_url}/survey?surveyId={survey_id}"
-
-   print(f"\n🔄 Processing survey: {survey_name} (ID: {survey_id})")
+   print(f"\n🔄 Processing survey ID: {survey_id}")
    print(f"📡 Task URL: {task_url}")
    print(f"📡 Meta URL: {meta_url}")
 
@@ -462,25 +438,24 @@ def process_survey(survey_name, survey_id):
                    try:
                        meta_data["scores"] = json.loads(meta_data["scores"])
                    except json.JSONDecodeError:
-                       print(f"⚠️ Could not parse 'scores' for {survey_name}")
+                       print(f"⚠️ Could not parse 'scores' for survey {survey_id}")
                        meta_data["scores"] = {}
            except json.JSONDecodeError as e:
-               print(f"⚠️ Meta JSON error for {survey_name}: {e}")
+               print(f"⚠️ Meta JSON error for survey {survey_id}: {e}")
        else:
-           print(f"⚠️ Empty or non-JSON meta response for {survey_name}")
+           print(f"⚠️ Empty or non-JSON meta response for survey {survey_id}")
 
        # Handle task response
        if task_resp.status_code == 200 and task_resp.text.strip():
            try:
                task_data = task_resp.json()
            except json.JSONDecodeError as e:
-               print(f"⚠️ Task JSON error for {survey_name}: {e}")
+               print(f"⚠️ Task JSON error for survey {survey_id}: {e}")
        else:
-           print(f"⚠️ Empty or non-JSON task response for {survey_name}")
+           print(f"⚠️ Empty or non-JSON task response for survey {survey_id}")
 
        # Create survey data
        survey_data = {
-           "survey_name": survey_name,
            "survey_id": survey_id,
            "meta": meta_data,
            "tasks": task_data
@@ -504,7 +479,6 @@ def process_survey(survey_name, survey_id):
        # Create the final output structure
        final_output = {
            "user_context": {
-               "organization_name": survey_name,
                "survey_id": survey_id,
                "assessment_date": datetime.now().strftime("%Y-%m-%d"),
                "current_maturity_scores": category_scores,
@@ -517,14 +491,14 @@ def process_survey(survey_name, survey_id):
        print("\n📊 Generated Recommendations:")
        print(json.dumps(final_output, indent=2))
        
-       print(f"✅ Processed: {survey_name} at {datetime.now().strftime('%H:%M:%S')}")
+       print(f"✅ Processed: Survey {survey_id} at {datetime.now().strftime('%H:%M:%S')}")
        time.sleep(0.5)
 
        return final_output
 
    except requests.exceptions.RequestException as e:
-       print(f"❌ Request failed for {survey_name}: {e}")
-       return {"error": f"Request failed for {survey_name}: {str(e)}", "survey_name": survey_name, "survey_id": survey_id}
+       print(f"❌ Request failed for survey {survey_id}: {e}")
+       return {"error": f"Request failed for survey {survey_id}: {str(e)}", "survey_id": survey_id}
 
 def calculate_overall_maturity(category_scores):
     """Calculate overall maturity level based on category scores"""
@@ -686,32 +660,16 @@ def home():
 
 @app.route('/process_survey/<survey_id>')
 def process_survey_endpoint(survey_id):
-    org_id = request.args.get('orgId')
-    if not org_id:
-        return jsonify({"error": "Missing orgId parameter"}), 400
     try:
         survey_id = int(survey_id)
-        surveys = fetch_surveys(org_id)
-        if not surveys:
-            return jsonify({"error": "Failed to fetch surveys from API"}), 500
-        survey_name = next((name for name, id in surveys.items() if id == survey_id), None)
-        if not survey_name:
-            return jsonify({"error": "Survey ID not found"}), 404
-        result = process_survey(survey_name, survey_id)
+        result = process_survey(survey_id)
         return jsonify(result)
+    except ValueError:
+        return jsonify({"error": "Invalid survey ID. Must be a number."}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route('/list_surveys')
-def list_surveys():
-    org_id = request.args.get('orgId')
-    if not org_id:
-        return jsonify({"error": "Missing orgId parameter"}), 400
-    surveys = fetch_surveys(org_id)
-    if not surveys:
-        return jsonify({"error": "Failed to fetch surveys from API"}), 500
-    return jsonify(surveys)
-
 if __name__ == "__main__":
     print("Starting NIST 2.0 Recommendation Engine API on http://localhost:5000")
+    print("Usage: GET /process_survey/<survey_id> to process any survey")
     app.run(host='0.0.0.0', port=5000, debug=True)
