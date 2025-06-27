@@ -28,7 +28,8 @@ surveys = {
     "tst": 5106,
     "Test 1": 5105,
     "AAA MME 1": 5104,
-    "AAA NIST 2.0 test": 5113
+    "AAA NIST 2.0 test": 5113,
+    "QA test surveys": 5177
 }
 
 # Session setup
