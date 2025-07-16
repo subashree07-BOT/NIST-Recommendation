@@ -942,7 +942,6 @@ def process_survey_sse_endpoint(survey_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 if __name__ == "__main__":
     print("Starting NIST 2.0 Recommendation Engine API on http://localhost:5000")
     print("Available endpoints:")
