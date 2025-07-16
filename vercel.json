@@ -4,27 +4,6 @@
     { "src": "api/index.py", "use": "@vercel/python" }
   ],
   "routes": [
-    {
-      "src": "/process_survey/(.*)",
-      "dest": "/api/index.py"
-    },
-    {
-      "src": "/process_survey_stream/(.*)",
-      "dest": "/api/index.py"
-    },
-    {
-      "src": "/process_survey_sse/(.*)",
-      "dest": "/api/index.py"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.py"
-    }
-  ],
-  "functions": {
-    "api/index.py": {
-      "maxDuration": 800
-    }
-  }
-} 
-
+    { "src": "/(.*)", "dest": "api/index.py" }
+  ]
+}
