@@ -378,7 +378,6 @@ def get_control_recommendation(control_id, score, task_data):
     
     return recommendation
 
-
 def process_survey_data(survey_data):
     """Process survey data and generate recommendations"""
     # Extract percentage scores from meta data
@@ -414,113 +413,92 @@ def process_survey_data(survey_data):
     
     return analysis
 
-def prioritize_recommendations(recommendations):
-    """
-    Sort recommendations based on impact vs. effort and return the top 5
-    """
-    def weighted_score(rec):
-        impact = rec.get("impact_score", 0)
-        effort = rec.get("effort_level", "High")
-        effort_weight = {
-            "Low": 1.5,
-            "Medium": 1.0,
-            "High": 0.5
-        }
-        return impact * effort_weight.get(effort, 0.5)
-    
-    sorted_recs = sorted(recommendations, key=weighted_score, reverse=True)
-    return sorted_recs[:5]
-
-
 def process_survey(survey_id):
-    """Process a single survey and return only the top 5 prioritized recommendations"""
-    task_url = f"{base_url}/surveyTasks?surveyId={survey_id}"
-    meta_url = f"{base_url}/survey?surveyId={survey_id}"
-    print(f"\n🔄 Processing survey ID: {survey_id}")
-    print(f"📡 Task URL: {task_url}")
-    print(f"📡 Meta URL: {meta_url}")
+   """Process a single survey and generate recommendations"""
+   task_url = f"{base_url}/surveyTasks?surveyId={survey_id}"
+   meta_url = f"{base_url}/survey?surveyId={survey_id}"
+   print(f"\n🔄 Processing survey ID: {survey_id}")
+   print(f"📡 Task URL: {task_url}")
+   print(f"📡 Meta URL: {meta_url}")
 
-    try:
-        # Send both requests using session
-        task_resp = session.get(task_url, headers=headers, timeout=30)
-        meta_resp = session.get(meta_url, headers=headers, timeout=30)
+   try:
+       # Send both requests using session
+       task_resp = session.get(task_url, headers=headers, timeout=30)
+       meta_resp = session.get(meta_url, headers=headers, timeout=30)
 
-        print(f"🛰️ Task Status: {task_resp.status_code} | Meta Status: {meta_resp.status_code}")
+       print(f"🛰️ Task Status: {task_resp.status_code} | Meta Status: {meta_resp.status_code}")
 
-        task_data, meta_data = {}, {}
+       task_data, meta_data = {}, {}
 
-        # Handle meta response
-        if meta_resp.status_code == 200 and meta_resp.text.strip():
-            try:
-                meta_data = meta_resp.json()
-                if isinstance(meta_data.get("scores"), str):
-                    try:
-                        meta_data["scores"] = json.loads(meta_data["scores"])
-                    except json.JSONDecodeError:
-                        print(f"⚠️ Could not parse 'scores' for survey {survey_id}")
-                        meta_data["scores"] = {}
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Meta JSON error for survey {survey_id}: {e}")
-        else:
-            print(f"⚠️ Empty or non-JSON meta response for survey {survey_id}")
+       # Handle meta response
+       if meta_resp.status_code == 200 and meta_resp.text.strip():
+           try:
+               meta_data = meta_resp.json()
+               if isinstance(meta_data.get("scores"), str):
+                   try:
+                       meta_data["scores"] = json.loads(meta_data["scores"])
+                   except json.JSONDecodeError:
+                       print(f"⚠️ Could not parse 'scores' for survey {survey_id}")
+                       meta_data["scores"] = {}
+           except json.JSONDecodeError as e:
+               print(f"⚠️ Meta JSON error for survey {survey_id}: {e}")
+       else:
+           print(f"⚠️ Empty or non-JSON meta response for survey {survey_id}")
 
-        # Handle task response
-        if task_resp.status_code == 200 and task_resp.text.strip():
-            try:
-                task_data = task_resp.json()
-            except json.JSONDecodeError as e:
-                print(f"⚠️ Task JSON error for survey {survey_id}: {e}")
-        else:
-            print(f"⚠️ Empty or non-JSON task response for survey {survey_id}")
+       # Handle task response
+       if task_resp.status_code == 200 and task_resp.text.strip():
+           try:
+               task_data = task_resp.json()
+           except json.JSONDecodeError as e:
+               print(f"⚠️ Task JSON error for survey {survey_id}: {e}")
+       else:
+           print(f"⚠️ Empty or non-JSON task response for survey {survey_id}")
 
-        # Create survey data
-        survey_data = {
-            "survey_id": survey_id,
-            "meta": meta_data,
-            "tasks": task_data
-        }
+       # Create survey data
+       survey_data = {
+           "survey_id": survey_id,
+           "meta": meta_data,
+           "tasks": task_data
+       }
 
-        # Process the survey data and generate recommendations
-        recommendations = []
-        tasks = survey_data.get("tasks", {}).get("tasks", [])
-        category_scores = survey_data.get("meta", {}).get("scores", {})
+       # Process the survey data and generate recommendations
+       recommendations = []
+       tasks = survey_data.get("tasks", {}).get("tasks", [])
+       category_scores = survey_data.get("meta", {}).get("scores", {})
 
-        for task in tasks:
-            if task.get("score") is not None:
-                recommendation = generate_subcategory_recommendation(
-                    task,
-                    category_scores,
-                    survey_id
-                )
-                if recommendation:
-                    recommendations.append(recommendation)
+       for task in tasks:
+           if task.get("score") is not None:
+               recommendation = generate_subcategory_recommendation(
+                   task,
+                   category_scores,
+                   survey_id
+               )
+               if recommendation:
+                   recommendations.append(recommendation)
 
-        # Generate top 5 prioritized recommendations
-        top_5_recs = prioritize_recommendations(recommendations)
+       # Create the final output structure
+       final_output = {
+           "user_context": {
+               "survey_id": survey_id,
+               "assessment_date": datetime.now().strftime("%Y-%m-%d"),
+               "current_maturity_scores": category_scores,
+               "overall_maturity_level": calculate_overall_maturity(category_scores)
+           },
+           "recommendations": recommendations
+       }
 
-        # Final output includes only context and top 5
-        final_output = {
-            "user_context": {
-                "survey_id": survey_id,
-                "assessment_date": datetime.now().strftime("%Y-%m-%d"),
-                "current_maturity_scores": category_scores,
-                "overall_maturity_level": calculate_overall_maturity(category_scores)
-            },
-            "top_recommendations": top_5_recs
-        }
+       # Print the raw response
+       print("\n📊 Generated Recommendations:")
+       print(json.dumps(final_output, indent=2))
+       
+       print(f"✅ Processed: Survey {survey_id} at {datetime.now().strftime('%H:%M:%S')}")
+       time.sleep(0.5)
 
-        print("\n📊 Top 5 Recommendations:")
-        print(json.dumps(final_output, indent=2))
+       return final_output
 
-        print(f"✅ Processed: Survey {survey_id} at {datetime.now().strftime('%H:%M:%S')}")
-        time.sleep(0.5)
-
-        return final_output
-
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Request failed for survey {survey_id}: {e}")
-        return {"error": f"Request failed for survey {survey_id}: {str(e)}", "survey_id": survey_id}
-
+   except requests.exceptions.RequestException as e:
+       print(f"❌ Request failed for survey {survey_id}: {e}")
+       return {"error": f"Request failed for survey {survey_id}: {str(e)}", "survey_id": survey_id}
 
 def calculate_overall_maturity(category_scores):
     """Calculate overall maturity level based on category scores"""
@@ -693,7 +671,7 @@ def process_survey_endpoint(survey_id):
 
 @app.route('/process_survey_stream/<survey_id>')
 def process_survey_stream_endpoint(survey_id):
-    """Streaming endpoint that yields top 5 prioritized recommendations"""
+    """Streaming endpoint that yields recommendations as they are generated"""
     try:
         survey_id = int(survey_id)
         
@@ -759,16 +737,15 @@ def process_survey_stream_endpoint(survey_id):
                 
                 yield f"data: {json.dumps({'type': 'user_context', 'data': user_context})}\n\n"
                 
-                # Process tasks and generate ALL recommendations first
+                # Process tasks and generate recommendations
                 tasks = survey_data.get("tasks", {}).get("tasks", [])
                 total_tasks = len([task for task in tasks if task.get("score") is not None])
                 processed_tasks = 0
                 
                 yield f"data: {json.dumps({'type': 'status', 'message': f'Processing {total_tasks} tasks...'})}\n\n"
                 
-                all_recommendations = []
+                recommendations = []
                 
-                # Generate all recommendations first (don't stream individually yet)
                 for task in tasks:
                     if task.get("score") is not None:
                         processed_tasks += 1
@@ -790,20 +767,12 @@ def process_survey_stream_endpoint(survey_id):
                         )
                         
                         if recommendation:
-                            all_recommendations.append(recommendation)
+                            recommendations.append(recommendation)
+                            # Send individual recommendation
+                            yield f"data: {json.dumps({'type': 'recommendation', 'data': recommendation})}\n\n"
                         
                         # Small delay to prevent overwhelming the client
                         time.sleep(0.1)
-                
-                # Now prioritize and get top 5
-                yield f"data: {json.dumps({'type': 'status', 'message': 'Prioritizing top 5 recommendations...'})}\n\n"
-                
-                top_5_recommendations = prioritize_recommendations(all_recommendations)
-                
-                # Stream the top 5 recommendations
-                for i, recommendation in enumerate(top_5_recommendations, 1):
-                    yield f"data: {json.dumps({'type': 'top_recommendation', 'rank': i, 'data': recommendation})}\n\n"
-                    time.sleep(0.2)  # Small delay between recommendations
                 
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
@@ -811,8 +780,7 @@ def process_survey_stream_endpoint(survey_id):
                 # Send final summary
                 final_summary = {
                     'type': 'summary',
-                    'total_processed': len(all_recommendations),
-                    'top_recommendations_count': len(top_5_recommendations),
+                    'total_recommendations': len(recommendations),
                     'survey_id': survey_id,
                     'timestamp': datetime.now().isoformat()
                 }
@@ -837,7 +805,7 @@ def process_survey_stream_endpoint(survey_id):
 
 @app.route('/process_survey_sse/<survey_id>')
 def process_survey_sse_endpoint(survey_id):
-    """Server-Sent Events endpoint for real-time streaming - returns top 5 recommendations"""
+    """Server-Sent Events endpoint for real-time streaming to web clients"""
     try:
         survey_id = int(survey_id)
         
@@ -903,16 +871,15 @@ def process_survey_sse_endpoint(survey_id):
                 
                 yield f"data: {json.dumps({'type': 'user_context', 'data': user_context})}\n\n"
                 
-                # Process tasks and generate ALL recommendations first
+                # Process tasks and generate recommendations
                 tasks = survey_data.get("tasks", {}).get("tasks", [])
                 total_tasks = len([task for task in tasks if task.get("score") is not None])
                 processed_tasks = 0
                 
                 yield f"data: {json.dumps({'type': 'status', 'message': f'Processing {total_tasks} tasks...'})}\n\n"
                 
-                all_recommendations = []
+                recommendations = []
                 
-                # Generate all recommendations first (don't stream individually yet)
                 for task in tasks:
                     if task.get("score") is not None:
                         processed_tasks += 1
@@ -934,37 +901,24 @@ def process_survey_sse_endpoint(survey_id):
                         )
                         
                         if recommendation:
-                            all_recommendations.append(recommendation)
+                            recommendations.append(recommendation)
+                            # Send individual recommendation
+                            yield f"data: {json.dumps({'type': 'recommendation', 'data': recommendation})}\n\n"
                         
                         # Small delay to prevent overwhelming the client
                         time.sleep(0.1)
                 
-                # Now prioritize and get top 5
-                yield f"data: {json.dumps({'type': 'status', 'message': 'Prioritizing top 5 recommendations...'})}\n\n"
-                
-                top_5_recommendations = prioritize_recommendations(all_recommendations)
-                
-                # Stream the top 5 recommendations
-                for i, recommendation in enumerate(top_5_recommendations, 1):
-                    yield f"data: {json.dumps({'type': 'top_recommendation', 'rank': i, 'data': recommendation})}\n\n"
-                    time.sleep(0.2)  # Small delay between recommendations
-                
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
                 
-                # Send final summary with top 5 structure matching non-streaming endpoint
-                final_output = {
-                    'type': 'final_result',
-                    'user_context': user_context,
-                    'top_recommendations': top_5_recommendations,
-                    'summary': {
-                        'total_processed': len(all_recommendations),
-                        'top_recommendations_count': len(top_5_recommendations),
-                        'survey_id': survey_id,
-                        'timestamp': datetime.now().isoformat()
-                    }
+                # Send final summary
+                final_summary = {
+                    'type': 'summary',
+                    'total_recommendations': len(recommendations),
+                    'survey_id': survey_id,
+                    'timestamp': datetime.now().isoformat()
                 }
-                yield f"data: {json.dumps(final_output)}\n\n"
+                yield f"data: {json.dumps(final_summary)}\n\n"
                 
             except requests.exceptions.RequestException as e:
                 error_msg = f"Request failed: {str(e)}"
