@@ -316,9 +316,11 @@ def analyze_individual_controls(survey_data):
         score = task.get("score", 0) or 0
         score = int(score)
         
-        # Generate control-specific recommendation
-        recommendation = get_control_recommendation(control_id, score, task)
-        control_recommendations.append(recommendation)
+        # Skip recommendation generation for scores 3, 4, 5 (good maturity levels)
+        if score <= 2:
+            # Generate control-specific recommendation
+            recommendation = get_control_recommendation(control_id, score, task)
+            control_recommendations.append(recommendation)
     
     return control_recommendations
 
@@ -468,13 +470,16 @@ def process_survey(survey_id):
 
        for task in tasks:
            if task.get("score") is not None:
-               recommendation = generate_subcategory_recommendation(
-                   task,
-                   category_scores,
-                   survey_id
-               )
-               if recommendation:
-                   recommendations.append(recommendation)
+               score = int(task.get("score", 0))
+               # Skip recommendation generation for scores 3, 4, 5 (good maturity levels)
+               if score <= 2:
+                   recommendation = generate_subcategory_recommendation(
+                       task,
+                       category_scores,
+                       survey_id
+                   )
+                   if recommendation:
+                       recommendations.append(recommendation)
 
        # Create the final output structure
        final_output = {
@@ -739,7 +744,8 @@ def process_survey_stream_endpoint(survey_id):
                 
                 # Process tasks and generate recommendations
                 tasks = survey_data.get("tasks", {}).get("tasks", [])
-                total_tasks = len([task for task in tasks if task.get("score") is not None])
+                # Only count tasks with scores 0, 1, 2 (skip good maturity levels 3, 4, 5)
+                total_tasks = len([task for task in tasks if task.get("score") is not None and int(task.get("score", 0)) <= 2])
                 processed_tasks = 0
                 
                 yield f"data: {json.dumps({'type': 'status', 'message': f'Processing {total_tasks} tasks...'})}\n\n"
@@ -748,31 +754,34 @@ def process_survey_stream_endpoint(survey_id):
                 
                 for task in tasks:
                     if task.get("score") is not None:
-                        processed_tasks += 1
-                        
-                        # Send progress update
-                        progress = {
-                            'type': 'progress',
-                            'current': processed_tasks,
-                            'total': total_tasks,
-                            'percentage': round((processed_tasks / total_tasks) * 100, 1)
-                        }
-                        yield f"data: {json.dumps(progress)}\n\n"
-                        
-                        # Generate recommendation for this task
-                        recommendation = generate_subcategory_recommendation(
-                            task,
-                            category_scores,
-                            survey_id
-                        )
-                        
-                        if recommendation:
-                            recommendations.append(recommendation)
-                            # Send individual recommendation
-                            yield f"data: {json.dumps({'type': 'recommendation', 'data': recommendation})}\n\n"
-                        
-                        # Small delay to prevent overwhelming the client
-                        time.sleep(0.1)
+                        score = int(task.get("score", 0))
+                        # Skip recommendation generation for scores 3, 4, 5 (good maturity levels)
+                        if score <= 2:
+                            processed_tasks += 1
+                            
+                            # Send progress update
+                            progress = {
+                                'type': 'progress',
+                                'current': processed_tasks,
+                                'total': total_tasks,
+                                'percentage': round((processed_tasks / total_tasks) * 100, 1)
+                            }
+                            yield f"data: {json.dumps(progress)}\n\n"
+                            
+                            # Generate recommendation for this task
+                            recommendation = generate_subcategory_recommendation(
+                                task,
+                                category_scores,
+                                survey_id
+                            )
+                            
+                            if recommendation:
+                                recommendations.append(recommendation)
+                                # Send individual recommendation
+                                yield f"data: {json.dumps({'type': 'recommendation', 'data': recommendation})}\n\n"
+                            
+                            # Small delay to prevent overwhelming the client
+                            time.sleep(0.1)
                 
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
@@ -873,7 +882,8 @@ def process_survey_sse_endpoint(survey_id):
                 
                 # Process tasks and generate recommendations
                 tasks = survey_data.get("tasks", {}).get("tasks", [])
-                total_tasks = len([task for task in tasks if task.get("score") is not None])
+                # Only count tasks with scores 0, 1, 2 (skip good maturity levels 3, 4, 5)
+                total_tasks = len([task for task in tasks if task.get("score") is not None and int(task.get("score", 0)) <= 2])
                 processed_tasks = 0
                 
                 yield f"data: {json.dumps({'type': 'status', 'message': f'Processing {total_tasks} tasks...'})}\n\n"
@@ -882,31 +892,34 @@ def process_survey_sse_endpoint(survey_id):
                 
                 for task in tasks:
                     if task.get("score") is not None:
-                        processed_tasks += 1
-                        
-                        # Send progress update
-                        progress = {
-                            'type': 'progress',
-                            'current': processed_tasks,
-                            'total': total_tasks,
-                            'percentage': round((processed_tasks / total_tasks) * 100, 1)
-                        }
-                        yield f"data: {json.dumps(progress)}\n\n"
-                        
-                        # Generate recommendation for this task
-                        recommendation = generate_subcategory_recommendation(
-                            task,
-                            category_scores,
-                            survey_id
-                        )
-                        
-                        if recommendation:
-                            recommendations.append(recommendation)
-                            # Send individual recommendation
-                            yield f"data: {json.dumps({'type': 'recommendation', 'data': recommendation})}\n\n"
-                        
-                        # Small delay to prevent overwhelming the client
-                        time.sleep(0.1)
+                        score = int(task.get("score", 0))
+                        # Skip recommendation generation for scores 3, 4, 5 (good maturity levels)
+                        if score <= 2:
+                            processed_tasks += 1
+                            
+                            # Send progress update
+                            progress = {
+                                'type': 'progress',
+                                'current': processed_tasks,
+                                'total': total_tasks,
+                                'percentage': round((processed_tasks / total_tasks) * 100, 1)
+                            }
+                            yield f"data: {json.dumps(progress)}\n\n"
+                            
+                            # Generate recommendation for this task
+                            recommendation = generate_subcategory_recommendation(
+                                task,
+                                category_scores,
+                                survey_id
+                            )
+                            
+                            if recommendation:
+                                recommendations.append(recommendation)
+                                # Send individual recommendation
+                                yield f"data: {json.dumps({'type': 'recommendation', 'data': recommendation})}\n\n"
+                            
+                            # Small delay to prevent overwhelming the client
+                            time.sleep(0.1)
                 
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
