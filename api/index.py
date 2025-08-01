@@ -483,29 +483,22 @@ def process_survey(survey_id):
 
        # Check if no recommendations were generated (all scores are 3+ indicating good maturity)
        if not recommendations:
-           final_output = {
-               "user_context": {
-                   "survey_id": survey_id,
-                   "assessment_date": datetime.now().strftime("%Y-%m-%d"),
-                   "current_maturity_scores": category_scores,
-                   "overall_maturity_level": calculate_overall_maturity(category_scores)
-               },
-               "status": "No Recommendations Needed at This Time",
-               "message": "Your assessment shows that all areas are currently at a low priority level, meaning your cybersecurity controls are well-established and working effectively.",
-               "guidance": "While no immediate actions are required, we recommend continuing to monitor, review, and improve over time to keep your security posture strong.",
-               "recommendations": []
-           }
-       else:
-           # Create the final output structure with recommendations
-           final_output = {
-               "user_context": {
-                   "survey_id": survey_id,
-                   "assessment_date": datetime.now().strftime("%Y-%m-%d"),
-                   "current_maturity_scores": category_scores,
-                   "overall_maturity_level": calculate_overall_maturity(category_scores)
-               },
-               "recommendations": recommendations
-           }
+           print("📊 No low-priority tasks found. Generating positive assessment message via LLM...")
+           # Generate a positive assessment using LLM in the same format as recommendations
+           positive_assessment = generate_positive_assessment_recommendation(category_scores, survey_id)
+           if positive_assessment:
+               recommendations = [positive_assessment]
+           
+       # Create the final output structure with recommendations (including positive assessment if applicable)
+       final_output = {
+           "user_context": {
+               "survey_id": survey_id,
+               "assessment_date": datetime.now().strftime("%Y-%m-%d"),
+               "current_maturity_scores": category_scores,
+               "overall_maturity_level": calculate_overall_maturity(category_scores)
+           },
+           "recommendations": recommendations
+       }
 
        # Print the raw response
        print("\n📊 Generated Recommendations:")
@@ -643,6 +636,67 @@ def prepare_subcategory_prompt(task_name, score, category, subcategory, context,
     7. Language is professional but accessible to executives
     8. Recommendations specifically address the current maturity level described in the Score Description.
     """
+
+def generate_positive_assessment_recommendation(category_scores, survey_id):
+    """Generate a positive assessment recommendation when no improvements are needed"""
+    try:
+        # Create prompt for positive assessment
+        prompt = f"""
+        Generate a positive cybersecurity assessment for an organization with strong maturity scores.
+        
+        Current Maturity Scores:
+        {json.dumps(category_scores, indent=2)}
+        
+        Survey ID: {survey_id}
+        Assessment Context: All cybersecurity controls scored 3 or higher, indicating well-established practices.
+        
+        Create a congratulatory recommendation that:
+        1. Acknowledges their strong cybersecurity posture
+        2. Provides guidance for maintaining excellence
+        3. Suggests optimization and continuous improvement
+        
+        Use subcategory "OVERALL-ASSESSMENT" and title "Cybersecurity Excellence Achieved".
+        Set priority to "Low" since no urgent actions are needed.
+        Focus on maintenance, monitoring, and strategic improvements.
+        """
+        
+        # Generate recommendation using GPT
+        recommendation = generate_gpt_recommendation(prompt)
+        
+        if recommendation:
+            # Add metadata for positive assessment
+            recommendation.update({
+                "assessment_type": "positive_evaluation",
+                "recommendation_id": str(uuid.uuid4()),
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            return recommendation
+            
+    except Exception as e:
+        print(f"Error generating positive assessment: {e}")
+        # Fallback to a basic positive message if LLM fails
+        return {
+            "subcategory": "OVERALL-ASSESSMENT",
+            "title": "Cybersecurity Excellence Achieved",
+            "description": "Organization demonstrates strong cybersecurity maturity across all assessed areas",
+            "priority": "Low",
+            "recommendation": "Congratulations! Your cybersecurity controls are well-established and working effectively. Continue monitoring and optimizing your security posture.",
+            "rationale": "All assessed areas show strong maturity levels, indicating effective cybersecurity implementation",
+            "supporting_resources": ["Continuous Monitoring Guide", "Security Optimization Best Practices"],
+            "remediation_steps": [
+                "Continue regular security assessments",
+                "Monitor for emerging threats and technologies", 
+                "Optimize existing controls for efficiency"
+            ],
+            "tools": ["Security Monitoring Platforms", "Threat Intelligence Services"],
+            "references": ["NIST Cybersecurity Framework", "Security Excellence Guidelines"],
+            "effort_level": "Low",
+            "impact_score": 8,
+            "assessment_type": "positive_evaluation",
+            "recommendation_id": str(uuid.uuid4()),
+            "timestamp": datetime.now().isoformat()
+        }
 
 def generate_gpt_recommendation(prompt, retries=3, delay=10):
     """Generate recommendation using GPT"""
@@ -801,26 +855,22 @@ def process_survey_stream_endpoint(survey_id):
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
                 
-                # Check if no recommendations were generated and send appropriate message
+                # Check if no recommendations were generated and generate positive assessment
                 if not recommendations:
-                    no_recommendations_response = {
-                        'type': 'no_recommendations',
-                        'status': 'No Recommendations Needed at This Time',
-                        'message': 'Your assessment shows that all areas are currently at a low priority level, meaning your cybersecurity controls are well-established and working effectively.',
-                        'guidance': 'While no immediate actions are required, we recommend continuing to monitor, review, and improve over time to keep your security posture strong.',
-                        'survey_id': survey_id,
-                        'timestamp': datetime.now().isoformat()
-                    }
-                    yield f"data: {json.dumps(no_recommendations_response)}\n\n"
-                else:
-                    # Send final summary
-                    final_summary = {
-                        'type': 'summary',
-                        'total_recommendations': len(recommendations),
-                        'survey_id': survey_id,
-                        'timestamp': datetime.now().isoformat()
-                    }
-                    yield f"data: {json.dumps(final_summary)}\n\n"
+                    yield f"data: {json.dumps({'type': 'status', 'message': 'Generating positive assessment via LLM...'})}\n\n"
+                    positive_assessment = generate_positive_assessment_recommendation(category_scores, survey_id)
+                    if positive_assessment:
+                        recommendations = [positive_assessment]
+                        yield f"data: {json.dumps({'type': 'recommendation', 'data': positive_assessment})}\n\n"
+                
+                # Send final summary
+                final_summary = {
+                    'type': 'summary',
+                    'total_recommendations': len(recommendations),
+                    'survey_id': survey_id,
+                    'timestamp': datetime.now().isoformat()
+                }
+                yield f"data: {json.dumps(final_summary)}\n\n"
                 
             except requests.exceptions.RequestException as e:
                 error_msg = f"Request failed: {str(e)}"
@@ -951,26 +1001,22 @@ def process_survey_sse_endpoint(survey_id):
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
                 
-                # Check if no recommendations were generated and send appropriate message
+                # Check if no recommendations were generated and generate positive assessment
                 if not recommendations:
-                    no_recommendations_response = {
-                        'type': 'no_recommendations',
-                        'status': 'No Recommendations Needed at This Time',
-                        'message': 'Your assessment shows that all areas are currently at a low priority level, meaning your cybersecurity controls are well-established and working effectively.',
-                        'guidance': 'While no immediate actions are required, we recommend continuing to monitor, review, and improve over time to keep your security posture strong.',
-                        'survey_id': survey_id,
-                        'timestamp': datetime.now().isoformat()
-                    }
-                    yield f"data: {json.dumps(no_recommendations_response)}\n\n"
-                else:
-                    # Send final summary
-                    final_summary = {
-                        'type': 'summary',
-                        'total_recommendations': len(recommendations),
-                        'survey_id': survey_id,
-                        'timestamp': datetime.now().isoformat()
-                    }
-                    yield f"data: {json.dumps(final_summary)}\n\n"
+                    yield f"data: {json.dumps({'type': 'status', 'message': 'Generating positive assessment via LLM...'})}\n\n"
+                    positive_assessment = generate_positive_assessment_recommendation(category_scores, survey_id)
+                    if positive_assessment:
+                        recommendations = [positive_assessment]
+                        yield f"data: {json.dumps({'type': 'recommendation', 'data': positive_assessment})}\n\n"
+                
+                # Send final summary
+                final_summary = {
+                    'type': 'summary',
+                    'total_recommendations': len(recommendations),
+                    'survey_id': survey_id,
+                    'timestamp': datetime.now().isoformat()
+                }
+                yield f"data: {json.dumps(final_summary)}\n\n"
                 
             except requests.exceptions.RequestException as e:
                 error_msg = f"Request failed: {str(e)}"
