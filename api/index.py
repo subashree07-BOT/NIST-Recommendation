@@ -650,14 +650,27 @@ def generate_positive_assessment_recommendation(category_scores, survey_id):
         Survey ID: {survey_id}
         Assessment Context: All cybersecurity controls scored 3 or higher, indicating well-established practices.
         
-        Create a congratulatory recommendation that:
-        1. Acknowledges their strong cybersecurity posture
-        2. Provides guidance for maintaining excellence
-        3. Suggests optimization and continuous improvement
+        Create a "No Recommendations Needed" assessment that:
+        1. Indicates no recommendations are required at this time
+        2. Acknowledges their strong cybersecurity maturity
+        3. Explains why no actions are needed
         
-        Use subcategory "OVERALL-ASSESSMENT" and title "Cybersecurity Excellence Achieved".
+        Use subcategory "OVERALL-ASSESSMENT".
         Set priority to "Low" since no urgent actions are needed.
-        Focus on maintenance, monitoring, and strategic improvements.
+        
+        For the main fields, generate content that conveys "No Recommendations Needed":
+        - title: Should convey no recommendations are needed
+        - description: Explain why no recommendations are required
+        - recommendation: State that no recommendations are needed due to good maturity
+        
+        IMPORTANT: Set these fields as empty/blank:
+        - effort_level: ""
+        - impact_score: ""
+        - rationale: ""
+        - remediation_steps: []
+        - tools: []
+        - supporting_resources: []
+        - references: []
         """
         
         # Generate recommendation using GPT
@@ -675,24 +688,20 @@ def generate_positive_assessment_recommendation(category_scores, survey_id):
             
     except Exception as e:
         print(f"Error generating positive assessment: {e}")
-        # Fallback to a basic positive message if LLM fails
+        # Fallback to a basic "no recommendations needed" message if LLM fails
         return {
             "subcategory": "OVERALL-ASSESSMENT",
-            "title": "Cybersecurity Excellence Achieved",
-            "description": "Organization demonstrates strong cybersecurity maturity across all assessed areas",
+            "title": "No Recommendations Needed at This Time",
+            "description": "All cybersecurity areas show sufficient maturity levels requiring no immediate action",
             "priority": "Low",
-            "recommendation": "Congratulations! Your cybersecurity controls are well-established and working effectively. Continue monitoring and optimizing your security posture.",
-            "rationale": "All assessed areas show strong maturity levels, indicating effective cybersecurity implementation",
-            "supporting_resources": ["Continuous Monitoring Guide", "Security Optimization Best Practices"],
-            "remediation_steps": [
-                "Continue regular security assessments",
-                "Monitor for emerging threats and technologies", 
-                "Optimize existing controls for efficiency"
-            ],
-            "tools": ["Security Monitoring Platforms", "Threat Intelligence Services"],
-            "references": ["NIST Cybersecurity Framework", "Security Excellence Guidelines"],
-            "effort_level": "Low",
-            "impact_score": 8,
+            "recommendation": "No recommendations needed at this time. Your cybersecurity controls are well-established and working effectively.",
+            "supporting_resources": [],
+            "remediation_steps": [],
+            "tools": [],
+            "references": [],
+            "effort_level": "",
+            "impact_score": "",
+            "rationale": "",
             "assessment_type": "positive_evaluation",
             "recommendation_id": str(uuid.uuid4()),
             "timestamp": datetime.now().isoformat()
