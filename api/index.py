@@ -481,16 +481,31 @@ def process_survey(survey_id):
                    if recommendation:
                        recommendations.append(recommendation)
 
-       # Create the final output structure
-       final_output = {
-           "user_context": {
-               "survey_id": survey_id,
-               "assessment_date": datetime.now().strftime("%Y-%m-%d"),
-               "current_maturity_scores": category_scores,
-               "overall_maturity_level": calculate_overall_maturity(category_scores)
-           },
-           "recommendations": recommendations
-       }
+       # Check if no recommendations were generated (all scores are 3+ indicating good maturity)
+       if not recommendations:
+           final_output = {
+               "user_context": {
+                   "survey_id": survey_id,
+                   "assessment_date": datetime.now().strftime("%Y-%m-%d"),
+                   "current_maturity_scores": category_scores,
+                   "overall_maturity_level": calculate_overall_maturity(category_scores)
+               },
+               "status": "No Recommendations Needed at This Time",
+               "message": "Your assessment shows that all areas are currently at a low priority level, meaning your cybersecurity controls are well-established and working effectively.",
+               "guidance": "While no immediate actions are required, we recommend continuing to monitor, review, and improve over time to keep your security posture strong.",
+               "recommendations": []
+           }
+       else:
+           # Create the final output structure with recommendations
+           final_output = {
+               "user_context": {
+                   "survey_id": survey_id,
+                   "assessment_date": datetime.now().strftime("%Y-%m-%d"),
+                   "current_maturity_scores": category_scores,
+                   "overall_maturity_level": calculate_overall_maturity(category_scores)
+               },
+               "recommendations": recommendations
+           }
 
        # Print the raw response
        print("\n📊 Generated Recommendations:")
@@ -786,14 +801,26 @@ def process_survey_stream_endpoint(survey_id):
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
                 
-                # Send final summary
-                final_summary = {
-                    'type': 'summary',
-                    'total_recommendations': len(recommendations),
-                    'survey_id': survey_id,
-                    'timestamp': datetime.now().isoformat()
-                }
-                yield f"data: {json.dumps(final_summary)}\n\n"
+                # Check if no recommendations were generated and send appropriate message
+                if not recommendations:
+                    no_recommendations_response = {
+                        'type': 'no_recommendations',
+                        'status': 'No Recommendations Needed at This Time',
+                        'message': 'Your assessment shows that all areas are currently at a low priority level, meaning your cybersecurity controls are well-established and working effectively.',
+                        'guidance': 'While no immediate actions are required, we recommend continuing to monitor, review, and improve over time to keep your security posture strong.',
+                        'survey_id': survey_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    yield f"data: {json.dumps(no_recommendations_response)}\n\n"
+                else:
+                    # Send final summary
+                    final_summary = {
+                        'type': 'summary',
+                        'total_recommendations': len(recommendations),
+                        'survey_id': survey_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    yield f"data: {json.dumps(final_summary)}\n\n"
                 
             except requests.exceptions.RequestException as e:
                 error_msg = f"Request failed: {str(e)}"
@@ -924,14 +951,26 @@ def process_survey_sse_endpoint(survey_id):
                 # Send completion status
                 yield f"data: {json.dumps({'type': 'status', 'message': 'Processing complete!'})}\n\n"
                 
-                # Send final summary
-                final_summary = {
-                    'type': 'summary',
-                    'total_recommendations': len(recommendations),
-                    'survey_id': survey_id,
-                    'timestamp': datetime.now().isoformat()
-                }
-                yield f"data: {json.dumps(final_summary)}\n\n"
+                # Check if no recommendations were generated and send appropriate message
+                if not recommendations:
+                    no_recommendations_response = {
+                        'type': 'no_recommendations',
+                        'status': 'No Recommendations Needed at This Time',
+                        'message': 'Your assessment shows that all areas are currently at a low priority level, meaning your cybersecurity controls are well-established and working effectively.',
+                        'guidance': 'While no immediate actions are required, we recommend continuing to monitor, review, and improve over time to keep your security posture strong.',
+                        'survey_id': survey_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    yield f"data: {json.dumps(no_recommendations_response)}\n\n"
+                else:
+                    # Send final summary
+                    final_summary = {
+                        'type': 'summary',
+                        'total_recommendations': len(recommendations),
+                        'survey_id': survey_id,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                    yield f"data: {json.dumps(final_summary)}\n\n"
                 
             except requests.exceptions.RequestException as e:
                 error_msg = f"Request failed: {str(e)}"
